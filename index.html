@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>블록 코딩 확장</title>
-  <!-- Google-hosted Blockly CDN -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/blockly/3.20200924.3/blockly.min.js"></script>
+  <title>블록 확장 및 기능 추가</title>
+  <!-- Blockly CDN -->
+  <script src="https://unpkg.com/blockly/blockly.min.js"></script>
   <style>
     #stage {
       width: 500px;
@@ -35,7 +35,7 @@
 </head>
 <body>
 
-  <h1>드래그앤드롭 블록 코딩 확장</h1>
+  <h1>블록 확장 및 기능 추가</h1>
 
   <!-- Blockly 작업 공간 -->
   <div id="blocklyDiv" style="height: 400px; width: 600px;"></div>
@@ -65,8 +65,6 @@
           <block type="move_up"></block>
           <block type="move_down"></block>
           <block type="change_shape"></block>
-          <block type="repeat"></block>
-          <block type="if_then"></block>
         </xml>
       `
     });
