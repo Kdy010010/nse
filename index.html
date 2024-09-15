@@ -56,19 +56,6 @@
   <button onclick="importBlocks()">블록 불러오기</button>
 
   <script>
-    // Blockly 기본 설정 (툴박스 정의)
-    var workspace = Blockly.inject('blocklyDiv', {
-      toolbox: `
-        <xml xmlns="https://developers.google.com/blockly/xml">
-          <block type="move_right"></block>
-          <block type="move_left"></block>
-          <block type="move_up"></block>
-          <block type="move_down"></block>
-          <block type="change_shape"></block>
-        </xml>
-      `
-    });
-
     // 블록 정의: 오른쪽으로 이동
     Blockly.Blocks['move_right'] = {
       init: function() {
@@ -123,6 +110,19 @@
         this.setColour(160);
       }
     };
+
+    // Blockly 기본 설정 (툴박스 정의)
+    var workspace = Blockly.inject('blocklyDiv', {
+      toolbox: `
+        <xml xmlns="https://developers.google.com/blockly/xml">
+          <block type="move_right"></block>
+          <block type="move_left"></block>
+          <block type="move_up"></block>
+          <block type="move_down"></block>
+          <block type="change_shape"></block>
+        </xml>
+      `
+    });
 
     // JavaScript 코드 생성
     Blockly.JavaScript['move_right'] = function(block) {
