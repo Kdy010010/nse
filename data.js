@@ -9,9 +9,9 @@ const data = {
       },
       "code": ""
     },
-    "when_clicked": {
+    "when_this_sprite_clicked": {
       "block": {
-        "message": "눌렸을 때",
+        "message": "이 스프라이트가 클릭되었을 때",
         "colour": 120,
         "type": "hat"
       },
@@ -19,53 +19,72 @@ const data = {
     }
   },
   "actions": {
-    "move_right": {
+    "move_steps": {
       "block": {
-        "message": "X축 오른쪽으로 이동",
+        "message": "%1 만큼 움직이기",
+        "args": [
+          {
+            "type": "input_value",
+            "name": "STEPS"
+          }
+        ],
         "colour": 230
       },
-      "code": "moveSpriteX(10);"
+      "code": "moveSprite(%STEPS%);"
     },
-    "move_left": {
+    "turn_right": {
       "block": {
-        "message": "X축 왼쪽으로 이동",
-        "colour": 230
+        "message": "오른쪽으로 %1 도 회전하기",
+        "args": [
+          {
+            "type": "input_value",
+            "name": "DEGREES"
+          }
+        ],
+        "colour": 60
       },
-      "code": "moveSpriteX(-10);"
-    },
-    "move_up": {
-      "block": {
-        "message": "Y축 위로 이동",
-        "colour": 180
-      },
-      "code": "moveSpriteY(-10);"
-    },
-    "move_down": {
-      "block": {
-        "message": "Y축 아래로 이동",
-        "colour": 180
-      },
-      "code": "moveSpriteY(10);"
-    },
-    "change_shape": {
-      "block": {
-        "message": "모양 변경",
-        "colour": 160
-      },
-      "code": "changeSpriteShape();"
+      "code": "rotateSprite(%DEGREES%);"
     },
     "say_message": {
       "block": {
-        "message": "메시지 말하기 %1",
+        "message": "%1 말하기",
         "args": [
           {
             "type": "input_value",
             "name": "MESSAGE"
           }
         ],
-        "colour": 290
+        "colour": 160
       },
       "code": "sayMessage(%MESSAGE%);"
+    },
+    "wait_seconds": {
+      "block": {
+        "message": "%1 초 기다리기",
+        "args": [
+          {
+            "type": "input_value",
+            "name": "SECONDS"
+          }
+        ],
+        "colour": 120
+      },
+      "code": "await waitSeconds(%SECONDS%);"
+    }
+  },
+  "control": {
+    "repeat_times": {
+      "block": {
+        "message": "%1 번 반복하기",
+        "args": [
+          {
+            "type": "input_value",
+            "name": "TIMES"
+          }
+        ],
+        "colour": 20
+      },
+      "code": "for(let i=0; i<%TIMES%; i++) {\n%DO%\n}"
     }
   }
 };
