@@ -2,7 +2,6 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>블록 확장 및 기능 추가</title>
   <!-- Blockly CDN -->
   <script src="https://unpkg.com/blockly/blockly.min.js"></script>
@@ -98,7 +97,6 @@
         document.getElementById('stage').appendChild(img);
         sprites[spriteId] = img;
         currentSprite = spriteId;
-        spriteScripts[spriteId] = []; // 해당 스프라이트의 스크립트 저장
       };
       reader.readAsDataURL(file);
     }
@@ -168,13 +166,13 @@
         // 블록 정의
         Blockly.Blocks[eventName] = {
           init: function() {
-            this.appendDummyInput()
-                .appendField(event.block.message);
-            this.setNextStatement(true, null);
-            this.setColour(event.block.colour);
-            this.hat = 'cap'; // 모자 블록 지정
-            this.setTooltip('');
-            this.setHelpUrl('');
+            this.jsonInit({
+              "type": eventName,
+              "message0": event.block.message,
+              "nextStatement": null,
+              "colour": event.block.colour,
+              "hat": "cap"
+            });
           }
         };
 
@@ -190,22 +188,18 @@
         const action = actions[actionName];
 
         // 블록 정의
+        const blockDefinition = {
+          "type": actionName,
+          "message0": action.block.message,
+          "args0": action.block.args,
+          "previousStatement": null,
+          "nextStatement": null,
+          "colour": action.block.colour
+        };
+
         Blockly.Blocks[actionName] = {
           init: function() {
-            this.appendDummyInput()
-                .appendField(action.block.message);
-            if (action.block.args) {
-              for (let arg of action.block.args) {
-                if (arg.type === 'input_value') {
-                  this.appendValueInput(arg.name);
-                }
-              }
-            }
-            this.setPreviousStatement(true, null);
-            this.setNextStatement(true, null);
-            this.setColour(action.block.colour);
-            this.setTooltip('');
-            this.setHelpUrl('');
+            this.jsonInit(blockDefinition);
           }
         };
 
@@ -213,7 +207,8 @@
         Blockly.JavaScript[actionName] = function(block) {
           let code = action.code;
           if (action.block.args) {
-            for (let arg of action.block.args) {
+            for (let i = 0; i < action.block.args.length; i++) {
+              const arg = action.block.args[i];
               if (arg.type === 'input_value') {
                 const value = Blockly.JavaScript.valueToCode(block, arg.name, Blockly.JavaScript.ORDER_ATOMIC) || '0';
                 code = code.replace(`%${arg.name}%`, value);
@@ -229,26 +224,36 @@
         const control = controls[controlName];
 
         // 블록 정의
+        const blockDefinition = {
+          "type": controlName,
+          "message0": control.block.message,
+          "args0": control.block.args,
+          "previousStatement": null,
+          "nextStatement": null,
+          "colour": control.block.colour
+        };
+
         Blockly.Blocks[controlName] = {
           init: function() {
-            this.appendValueInput(control.block.args[0].name)
-                .setCheck(null)
-                .appendField(control.block.message);
-            this.appendStatementInput('DO')
-                .setCheck(null);
-            this.setPreviousStatement(true, null);
-            this.setNextStatement(true, null);
-            this.setColour(control.block.colour);
-            this.setTooltip('');
-            this.setHelpUrl('');
+            this.jsonInit(blockDefinition);
           }
         };
 
         // 코드 생성기 정의
         Blockly.JavaScript[controlName] = function(block) {
-          const value = Blockly.JavaScript.valueToCode(block, control.block.args[0].name, Blockly.JavaScript.ORDER_ATOMIC) || '0';
-          const statements = Blockly.JavaScript.statementToCode(block, 'DO');
-          let code = control.code.replace(`%${control.block.args[0].name}%`, value).replace('%DO%', statements);
+          let code = control.code;
+          if (control.block.args) {
+            for (let i = 0; i < control.block.args.length; i++) {
+              const arg = control.block.args[i];
+              if (arg.type === 'input_value') {
+                const value = Blockly.JavaScript.valueToCode(block, arg.name, Blockly.JavaScript.ORDER_ATOMIC) || '0';
+                code = code.replace(`%${arg.name}%`, value);
+              } else if (arg.type === 'input_statement') {
+                const statements = Blockly.JavaScript.statementToCode(block, arg.name);
+                code = code.replace(`%${arg.name}%`, statements);
+              }
+            }
+          }
           return code;
         };
       }
@@ -297,8 +302,8 @@
           // 이벤트 블록의 타입에 따라 처리
           let targetSprite = null;
           if (eventType === 'when_this_sprite_clicked') {
-            // 현재 스프라이트에 스크립트를 저장
-            targetSprite = block.data; // 블록의 데이터에 스프라이트 ID 저장
+            // 블록의 데이터에서 스프라이트 ID를 가져옴
+            targetSprite = block.data;
             if (!spriteScripts[targetSprite]) {
               spriteScripts[targetSprite] = [];
             }
