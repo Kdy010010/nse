@@ -1,5 +1,23 @@
 // data.js
 const data = {
+  "events": {
+    "when_started": {
+      "block": {
+        "message": "시작했을 때",
+        "colour": 120,
+        "type": "hat"
+      },
+      "code": ""
+    },
+    "when_clicked": {
+      "block": {
+        "message": "눌렸을 때",
+        "colour": 120,
+        "type": "hat"
+      },
+      "code": ""
+    }
+  },
   "actions": {
     "move_right": {
       "block": {
@@ -35,6 +53,19 @@ const data = {
         "colour": 160
       },
       "code": "changeSpriteShape();"
+    },
+    "say_message": {
+      "block": {
+        "message": "메시지 말하기 %1",
+        "args": [
+          {
+            "type": "input_value",
+            "name": "MESSAGE"
+          }
+        ],
+        "colour": 290
+      },
+      "code": "sayMessage(%MESSAGE%);"
     }
   }
 };
