@@ -23,7 +23,6 @@
       width: 50px;
       height: 50px;
       position: absolute;
-      background-color: red;
       left: 0;
       top: 0;
       cursor: pointer;
@@ -56,10 +55,10 @@
   </div>
 
   <!-- 그린 플래그 (코드 실행 버튼) -->
-  <div class="green-flag" onclick="runEvent('when_started')"></div>
+  <div class="green-flag" onclick="runGlobalEvent('when_started')"></div>
 
   <!-- 실행 버튼 -->
-  <button onclick="runEvent('when_started')">코드 실행</button>
+  <button onclick="runGlobalEvent('when_started')">코드 실행</button>
 
   <!-- 블록 저장 및 불러오기 버튼 -->
   <button onclick="saveBlocks()">블록 저장</button>
@@ -77,6 +76,7 @@
   <script>
     // 스프라이트 관리
     let sprites = {};
+    let spriteScripts = {}; // 각 스프라이트의 스크립트를 저장
     let currentSprite = null; // 현재 선택된 스프라이트
 
     function addSprite(event) {
@@ -90,13 +90,15 @@
         img.id = spriteId;
         img.style.left = '0px';
         img.style.top = '0px';
+        img.dataset.rotation = 0; // 회전 각도 저장
         img.onclick = function() {
           currentSprite = spriteId;
-          runEvent('when_clicked');
+          runSpriteEvent(spriteId, 'when_this_sprite_clicked');
         };
         document.getElementById('stage').appendChild(img);
         sprites[spriteId] = img;
         currentSprite = spriteId;
+        spriteScripts[spriteId] = []; // 해당 스프라이트의 스크립트 저장
       };
       reader.readAsDataURL(file);
     }
@@ -111,28 +113,24 @@
       reader.readAsDataURL(file);
     }
 
-    function moveSpriteX(distance) {
+    async function moveSprite(steps) {
       const sprite = sprites[currentSprite];
       if (!sprite) return;
-      let currentLeft = parseInt(sprite.style.left, 10) || 0;
-      sprite.style.left = (currentLeft + distance) + 'px';
+      const angle = (parseFloat(sprite.dataset.rotation) || 0) * (Math.PI / 180);
+      const dx = steps * Math.cos(angle);
+      const dy = steps * Math.sin(angle);
+      let currentLeft = parseFloat(sprite.style.left) || 0;
+      let currentTop = parseFloat(sprite.style.top) || 0;
+      sprite.style.left = (currentLeft + dx) + 'px';
+      sprite.style.top = (currentTop + dy) + 'px';
     }
 
-    function moveSpriteY(distance) {
+    function rotateSprite(degrees) {
       const sprite = sprites[currentSprite];
       if (!sprite) return;
-      let currentTop = parseInt(sprite.style.top, 10) || 0;
-      sprite.style.top = (currentTop + distance) + 'px';
-    }
-
-    function changeSpriteShape() {
-      const sprite = sprites[currentSprite];
-      if (!sprite) return;
-      if (sprite.style.borderRadius === '50%') {
-        sprite.style.borderRadius = '0%';
-      } else {
-        sprite.style.borderRadius = '50%';
-      }
+      let rotation = (parseFloat(sprite.dataset.rotation) || 0) + parseFloat(degrees);
+      sprite.dataset.rotation = rotation;
+      sprite.style.transform = `rotate(${rotation}deg)`;
     }
 
     function sayMessage(message) {
@@ -141,7 +139,7 @@
       const bubble = document.createElement('div');
       bubble.innerText = message;
       bubble.style.position = 'absolute';
-      bubble.style.left = (parseInt(sprite.style.left, 10) + 60) + 'px';
+      bubble.style.left = (parseFloat(sprite.style.left) + 60) + 'px';
       bubble.style.top = sprite.style.top;
       bubble.style.padding = '5px';
       bubble.style.border = '1px solid black';
@@ -152,9 +150,14 @@
       }, 2000);
     }
 
+    function waitSeconds(seconds) {
+      return new Promise(resolve => setTimeout(resolve, seconds * 1000));
+    }
+
     // data.js에서 불러온 data 사용
     const events = data.events;
     const actions = data.actions;
+    const controls = data.control;
 
     // 모든 블록 정의 및 코드 생성기 설정
     function defineBlocks() {
@@ -170,6 +173,8 @@
             this.setNextStatement(true, null);
             this.setColour(event.block.colour);
             this.hat = 'cap'; // 모자 블록 지정
+            this.setTooltip('');
+            this.setHelpUrl('');
           }
         };
 
@@ -199,6 +204,8 @@
             this.setPreviousStatement(true, null);
             this.setNextStatement(true, null);
             this.setColour(action.block.colour);
+            this.setTooltip('');
+            this.setHelpUrl('');
           }
         };
 
@@ -208,12 +215,41 @@
           if (action.block.args) {
             for (let arg of action.block.args) {
               if (arg.type === 'input_value') {
-                const value = Blockly.JavaScript.valueToCode(block, arg.name, Blockly.JavaScript.ORDER_ATOMIC) || '""';
+                const value = Blockly.JavaScript.valueToCode(block, arg.name, Blockly.JavaScript.ORDER_ATOMIC) || '0';
                 code = code.replace(`%${arg.name}%`, value);
               }
             }
           }
           return code + '\n';
+        };
+      }
+
+      // 제어 블록 정의
+      for (let controlName in controls) {
+        const control = controls[controlName];
+
+        // 블록 정의
+        Blockly.Blocks[controlName] = {
+          init: function() {
+            this.appendValueInput(control.block.args[0].name)
+                .setCheck(null)
+                .appendField(control.block.message);
+            this.appendStatementInput('DO')
+                .setCheck(null);
+            this.setPreviousStatement(true, null);
+            this.setNextStatement(true, null);
+            this.setColour(control.block.colour);
+            this.setTooltip('');
+            this.setHelpUrl('');
+          }
+        };
+
+        // 코드 생성기 정의
+        Blockly.JavaScript[controlName] = function(block) {
+          const value = Blockly.JavaScript.valueToCode(block, control.block.args[0].name, Blockly.JavaScript.ORDER_ATOMIC) || '0';
+          const statements = Blockly.JavaScript.statementToCode(block, 'DO');
+          let code = control.code.replace(`%${control.block.args[0].name}%`, value).replace('%DO%', statements);
+          return code;
         };
       }
     }
@@ -231,7 +267,13 @@
         toolboxXml += `<block type="${actionName}"></block>`;
       }
       toolboxXml += '</category>';
+      toolboxXml += '<category name="제어" colour="20">';
+      for (let controlName in controls) {
+        toolboxXml += `<block type="${controlName}"></block>`;
+      }
+      toolboxXml += '</category>';
       toolboxXml += '<category name="값" colour="330">';
+      toolboxXml += '<block type="math_number"></block>';
       toolboxXml += '<block type="text"></block>';
       toolboxXml += '</category>';
       toolboxXml += '</xml>';
@@ -245,15 +287,72 @@
       toolbox: toolboxXml
     });
 
-    // 이벤트 블록의 코드를 실행하는 함수
-    function runEvent(eventType) {
+    // 각 스프라이트의 스크립트를 저장하는 함수
+    function saveSpriteScripts() {
+      spriteScripts = {};
       const blocks = workspace.getTopBlocks(true);
+      for (let block of blocks) {
+        const eventType = block.type;
+        if (events[eventType]) {
+          // 이벤트 블록의 타입에 따라 처리
+          let targetSprite = null;
+          if (eventType === 'when_this_sprite_clicked') {
+            // 현재 스프라이트에 스크립트를 저장
+            targetSprite = block.data; // 블록의 데이터에 스프라이트 ID 저장
+            if (!spriteScripts[targetSprite]) {
+              spriteScripts[targetSprite] = [];
+            }
+            spriteScripts[targetSprite].push(block);
+          } else if (eventType === 'when_started') {
+            // 전역 스크립트로 저장
+            targetSprite = 'global';
+            if (!spriteScripts[targetSprite]) {
+              spriteScripts[targetSprite] = [];
+            }
+            spriteScripts[targetSprite].push(block);
+          }
+        }
+      }
+    }
+
+    // 블록의 데이터에 스프라이트 ID 저장
+    workspace.addChangeListener(function(event) {
+      if (event.type === Blockly.Events.BLOCK_CREATE) {
+        const block = workspace.getBlockById(event.blockId);
+        if (block.type === 'when_this_sprite_clicked') {
+          block.data = currentSprite; // 현재 스프라이트 ID를 블록 데이터에 저장
+        }
+      }
+    });
+
+    // 스프라이트 이벤트 실행 함수
+    async function runSpriteEvent(spriteId, eventType) {
+      saveSpriteScripts(); // 스크립트 저장
+      const blocks = spriteScripts[spriteId] || [];
+      for (let block of blocks) {
+        if (block.type === eventType) {
+          currentSprite = spriteId;
+          let code = Blockly.JavaScript.blockToCode(block);
+          try {
+            await eval(`(async () => { ${code} })()`);
+          } catch (e) {
+            console.error(e);
+            alert('코드 실행 중 오류가 발생했습니다.');
+          }
+        }
+      }
+    }
+
+    // 전역 이벤트 실행 함수
+    async function runGlobalEvent(eventType) {
+      saveSpriteScripts(); // 스크립트 저장
+      const blocks = spriteScripts['global'] || [];
       for (let block of blocks) {
         if (block.type === eventType) {
           currentSprite = null; // 글로벌 이벤트이므로 현재 스프라이트를 초기화
           let code = Blockly.JavaScript.blockToCode(block);
           try {
-            eval(code); // 블록의 코드를 실행
+            await eval(`(async () => { ${code} })()`);
           } catch (e) {
             console.error(e);
             alert('코드 실행 중 오류가 발생했습니다.');
@@ -288,8 +387,6 @@
         reader.readAsText(file);
       }
     }
-
-    // 스프라이트 클릭 이벤트 추가는 스프라이트 생성 시 함께 처리
 
   </script>
 </body>
