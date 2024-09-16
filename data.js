@@ -4,16 +4,14 @@ const data = {
     "when_started": {
       "block": {
         "message": "시작했을 때",
-        "colour": 120,
-        "type": "hat"
+        "colour": 120
       },
       "code": ""
     },
     "when_this_sprite_clicked": {
       "block": {
         "message": "이 스프라이트가 클릭되었을 때",
-        "colour": 120,
-        "type": "hat"
+        "colour": 120
       },
       "code": ""
     }
@@ -25,12 +23,13 @@ const data = {
         "args": [
           {
             "type": "input_value",
-            "name": "STEPS"
+            "name": "STEPS",
+            "check": "Number"
           }
         ],
         "colour": 230
       },
-      "code": "moveSprite(%STEPS%);"
+      "code": "await moveSprite(%STEPS%);"
     },
     "turn_right": {
       "block": {
@@ -38,7 +37,8 @@ const data = {
         "args": [
           {
             "type": "input_value",
-            "name": "DEGREES"
+            "name": "DEGREES",
+            "check": "Number"
           }
         ],
         "colour": 60
@@ -51,7 +51,8 @@ const data = {
         "args": [
           {
             "type": "input_value",
-            "name": "MESSAGE"
+            "name": "MESSAGE",
+            "check": "String"
           }
         ],
         "colour": 160
@@ -64,7 +65,8 @@ const data = {
         "args": [
           {
             "type": "input_value",
-            "name": "SECONDS"
+            "name": "SECONDS",
+            "check": "Number"
           }
         ],
         "colour": 120
@@ -75,11 +77,16 @@ const data = {
   "control": {
     "repeat_times": {
       "block": {
-        "message": "%1 번 반복하기",
+        "message": "%1 번 반복하기 %2",
         "args": [
           {
             "type": "input_value",
-            "name": "TIMES"
+            "name": "TIMES",
+            "check": "Number"
+          },
+          {
+            "type": "input_statement",
+            "name": "DO"
           }
         ],
         "colour": 20
