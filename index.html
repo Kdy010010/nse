@@ -16,6 +16,7 @@
       position: relative;
       background-color: lightblue;
       margin-top: 20px;
+      overflow: hidden;
     }
 
     .sprite {
@@ -25,6 +26,7 @@
       background-color: red;
       left: 0;
       top: 0;
+      cursor: pointer;
     }
 
     .green-flag {
@@ -33,6 +35,10 @@
       background-color: green;
       display: inline-block;
       cursor: pointer;
+      margin: 10px 0;
+    }
+
+    #background-input, #sprite-input {
       margin: 10px 0;
     }
   </style>
@@ -44,116 +50,247 @@
   <!-- Blockly 작업 공간 -->
   <div id="blocklyDiv" style="height: 400px; width: 600px;"></div>
 
-  <!-- 스프라이트가 있는 스테이지 -->
+  <!-- 스테이지와 스프라이트 영역 -->
   <div id="stage">
-    <div id="sprite1" class="sprite"></div>
+    <!-- 스프라이트들이 추가될 영역 -->
   </div>
 
   <!-- 그린 플래그 (코드 실행 버튼) -->
-  <div class="green-flag" onclick="runCode()"></div>
+  <div class="green-flag" onclick="runEvent('when_started')"></div>
 
   <!-- 실행 버튼 -->
-  <button onclick="runCode()">코드 실행</button>
+  <button onclick="runEvent('when_started')">코드 실행</button>
 
-  <!-- 내보내기 및 불러오기 버튼 -->
-  <button onclick="exportBlocks()">블록 내보내기</button>
-  <button onclick="importBlocks()">블록 불러오기</button>
+  <!-- 블록 저장 및 불러오기 버튼 -->
+  <button onclick="saveBlocks()">블록 저장</button>
+  <input type="file" id="fileUpload" accept=".xml" onchange="loadBlocks()" style="display: none;">
+  <button onclick="document.getElementById('fileUpload').click()">블록 불러오기</button>
+
+  <!-- 배경 이미지 업로드 -->
+  <input type="file" id="background-input" accept="image/*" onchange="changeBackground(event)">
+  <label for="background-input">배경 이미지 업로드</label>
+
+  <!-- 스프라이트 이미지 업로드 -->
+  <input type="file" id="sprite-input" accept="image/*" onchange="addSprite(event)">
+  <label for="sprite-input">스프라이트 이미지 업로드</label>
 
   <script>
-    // 스프라이트 선택 및 제어
-    const sprite = document.getElementById('sprite1');
-    let isCircle = false; // 모양 상태를 저장
+    // 스프라이트 관리
+    let sprites = {};
+    let currentSprite = null; // 현재 선택된 스프라이트
+
+    function addSprite(event) {
+      const file = event.target.files[0];
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const spriteId = 'sprite' + Object.keys(sprites).length;
+        const img = document.createElement('img');
+        img.src = e.target.result;
+        img.classList.add('sprite');
+        img.id = spriteId;
+        img.style.left = '0px';
+        img.style.top = '0px';
+        img.onclick = function() {
+          currentSprite = spriteId;
+          runEvent('when_clicked');
+        };
+        document.getElementById('stage').appendChild(img);
+        sprites[spriteId] = img;
+        currentSprite = spriteId;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function changeBackground(event) {
+      const file = event.target.files[0];
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        document.getElementById('stage').style.backgroundImage = `url(${e.target.result})`;
+        document.getElementById('stage').style.backgroundSize = 'cover';
+      };
+      reader.readAsDataURL(file);
+    }
 
     function moveSpriteX(distance) {
-      let currentLeft = window.getComputedStyle(sprite).left;
-      currentLeft = parseInt(currentLeft === 'auto' ? 0 : currentLeft, 10) || 0;
+      const sprite = sprites[currentSprite];
+      if (!sprite) return;
+      let currentLeft = parseInt(sprite.style.left, 10) || 0;
       sprite.style.left = (currentLeft + distance) + 'px';
     }
 
     function moveSpriteY(distance) {
-      let currentTop = window.getComputedStyle(sprite).top;
-      currentTop = parseInt(currentTop === 'auto' ? 0 : currentTop, 10) || 0;
+      const sprite = sprites[currentSprite];
+      if (!sprite) return;
+      let currentTop = parseInt(sprite.style.top, 10) || 0;
       sprite.style.top = (currentTop + distance) + 'px';
     }
 
     function changeSpriteShape() {
-      if (isCircle) {
-        sprite.style.borderRadius = '0%'; // 사각형
-        sprite.style.backgroundColor = 'red';
+      const sprite = sprites[currentSprite];
+      if (!sprite) return;
+      if (sprite.style.borderRadius === '50%') {
+        sprite.style.borderRadius = '0%';
       } else {
-        sprite.style.borderRadius = '50%'; // 원형
-        sprite.style.backgroundColor = 'blue';
+        sprite.style.borderRadius = '50%';
       }
-      isCircle = !isCircle; // 모양 토글
+    }
+
+    function sayMessage(message) {
+      const sprite = sprites[currentSprite];
+      if (!sprite) return;
+      const bubble = document.createElement('div');
+      bubble.innerText = message;
+      bubble.style.position = 'absolute';
+      bubble.style.left = (parseInt(sprite.style.left, 10) + 60) + 'px';
+      bubble.style.top = sprite.style.top;
+      bubble.style.padding = '5px';
+      bubble.style.border = '1px solid black';
+      bubble.style.backgroundColor = 'white';
+      document.getElementById('stage').appendChild(bubble);
+      setTimeout(() => {
+        document.getElementById('stage').removeChild(bubble);
+      }, 2000);
     }
 
     // data.js에서 불러온 data 사용
+    const events = data.events;
     const actions = data.actions;
 
-    // 블록 정의 및 코드 생성기 설정
-    for (let actionName in actions) {
-      const action = actions[actionName];
+    // 모든 블록 정의 및 코드 생성기 설정
+    function defineBlocks() {
+      // 이벤트 블록 정의
+      for (let eventName in events) {
+        const event = events[eventName];
 
-      // 블록 정의
-      Blockly.Blocks[actionName] = {
-        init: function() {
-          this.appendDummyInput()
-              .appendField(action.block.message);
-          this.setPreviousStatement(true, null);
-          this.setNextStatement(true, null);
-          this.setColour(action.block.colour);
-        }
-      };
+        // 블록 정의
+        Blockly.Blocks[eventName] = {
+          init: function() {
+            this.appendDummyInput()
+                .appendField(event.block.message);
+            this.setNextStatement(true, null);
+            this.setColour(event.block.colour);
+            this.hat = 'cap'; // 모자 블록 지정
+          }
+        };
 
-      // 코드 생성기 정의
-      Blockly.JavaScript[actionName] = function(block) {
-        return action.code + '\n';
-      };
+        // 코드 생성기 정의
+        Blockly.JavaScript[eventName] = function(block) {
+          const statements = Blockly.JavaScript.statementToCode(block);
+          return `${statements}`;
+        };
+      }
+
+      // 액션 블록 정의
+      for (let actionName in actions) {
+        const action = actions[actionName];
+
+        // 블록 정의
+        Blockly.Blocks[actionName] = {
+          init: function() {
+            this.appendDummyInput()
+                .appendField(action.block.message);
+            if (action.block.args) {
+              for (let arg of action.block.args) {
+                if (arg.type === 'input_value') {
+                  this.appendValueInput(arg.name);
+                }
+              }
+            }
+            this.setPreviousStatement(true, null);
+            this.setNextStatement(true, null);
+            this.setColour(action.block.colour);
+          }
+        };
+
+        // 코드 생성기 정의
+        Blockly.JavaScript[actionName] = function(block) {
+          let code = action.code;
+          if (action.block.args) {
+            for (let arg of action.block.args) {
+              if (arg.type === 'input_value') {
+                const value = Blockly.JavaScript.valueToCode(block, arg.name, Blockly.JavaScript.ORDER_ATOMIC) || '""';
+                code = code.replace(`%${arg.name}%`, value);
+              }
+            }
+          }
+          return code + '\n';
+        };
+      }
     }
 
     // 툴박스 XML 생성
-    let toolboxXml = '<xml xmlns="https://developers.google.com/blockly/xml">';
-    for (let actionName in actions) {
-      toolboxXml += `<block type="${actionName}"></block>`;
+    function createToolbox() {
+      let toolboxXml = '<xml xmlns="https://developers.google.com/blockly/xml">';
+      toolboxXml += '<category name="이벤트" colour="120">';
+      for (let eventName in events) {
+        toolboxXml += `<block type="${eventName}"></block>`;
+      }
+      toolboxXml += '</category>';
+      toolboxXml += '<category name="동작" colour="230">';
+      for (let actionName in actions) {
+        toolboxXml += `<block type="${actionName}"></block>`;
+      }
+      toolboxXml += '</category>';
+      toolboxXml += '<category name="값" colour="330">';
+      toolboxXml += '<block type="text"></block>';
+      toolboxXml += '</category>';
+      toolboxXml += '</xml>';
+      return toolboxXml;
     }
-    toolboxXml += '</xml>';
 
-    // Blockly 작업 공간 초기화
+    // 블록 정의 및 Blockly 작업 공간 초기화
+    defineBlocks();
+    const toolboxXml = createToolbox();
     const workspace = Blockly.inject('blocklyDiv', {
       toolbox: toolboxXml
     });
 
-    // Blockly로 생성된 코드를 실행하는 함수
-    function runCode() {
-      var code = Blockly.JavaScript.workspaceToCode(workspace);
-      try {
-        eval(code); // Blockly가 생성한 코드를 실행
-      } catch (e) {
-        console.error(e);
-        alert('코드 실행 중 오류가 발생했습니다.');
+    // 이벤트 블록의 코드를 실행하는 함수
+    function runEvent(eventType) {
+      const blocks = workspace.getTopBlocks(true);
+      for (let block of blocks) {
+        if (block.type === eventType) {
+          currentSprite = null; // 글로벌 이벤트이므로 현재 스프라이트를 초기화
+          let code = Blockly.JavaScript.blockToCode(block);
+          try {
+            eval(code); // 블록의 코드를 실행
+          } catch (e) {
+            console.error(e);
+            alert('코드 실행 중 오류가 발생했습니다.');
+          }
+        }
       }
     }
 
-    // 블록 내보내기 기능 (저장)
-    function exportBlocks() {
-      var xml = Blockly.Xml.workspaceToDom(workspace);
-      var xml_text = Blockly.Xml.domToText(xml);
-      localStorage.setItem('blocklyXml', xml_text); // 로컬스토리지에 저장
-      alert("블록이 저장되었습니다!");
+    // 블록 저장 기능 (파일 다운로드)
+    function saveBlocks() {
+      const xml = Blockly.Xml.workspaceToDom(workspace);
+      const xmlText = Blockly.Xml.domToPrettyText(xml);
+      const blob = new Blob([xmlText], {type: 'text/xml'});
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = 'blocks.xml';
+      link.click();
     }
 
-    // 블록 불러오기 기능 (로드)
-    function importBlocks() {
-      var xml_text = localStorage.getItem('blocklyXml');
-      if (xml_text) {
-        var xml = Blockly.Xml.textToDom(xml_text);
-        Blockly.Xml.clearWorkspaceAndLoadFromXml(xml, workspace);
-        alert("블록이 불러와졌습니다!");
-      } else {
-        alert("저장된 블록이 없습니다.");
+    // 블록 불러오기 기능 (파일 업로드)
+    function loadBlocks() {
+      const fileInput = document.getElementById('fileUpload');
+      const file = fileInput.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+          const xmlText = event.target.result;
+          const xml = Blockly.Xml.textToDom(xmlText);
+          Blockly.Xml.clearWorkspaceAndLoadFromXml(xml, workspace);
+          alert('블록이 불러와졌습니다!');
+        };
+        reader.readAsText(file);
       }
     }
+
+    // 스프라이트 클릭 이벤트 추가는 스프라이트 생성 시 함께 처리
+
   </script>
-
 </body>
 </html>
