@@ -6,6 +6,8 @@
   <title>블록 확장 및 기능 추가</title>
   <!-- Blockly CDN -->
   <script src="https://unpkg.com/blockly/blockly.min.js"></script>
+  <!-- data.js 파일 불러오기 -->
+  <script src="data.js"></script>
   <style>
     #stage {
       width: 500px;
@@ -21,6 +23,8 @@
       height: 50px;
       position: absolute;
       background-color: red;
+      left: 0;
+      top: 0;
     }
 
     .green-flag {
@@ -46,7 +50,7 @@
   </div>
 
   <!-- 그린 플래그 (코드 실행 버튼) -->
-  <div class="green-flag" onclick="runCode()">그린 플래그</div>
+  <div class="green-flag" onclick="runCode()"></div>
 
   <!-- 실행 버튼 -->
   <button onclick="runCode()">코드 실행</button>
@@ -56,106 +60,19 @@
   <button onclick="importBlocks()">블록 불러오기</button>
 
   <script>
-    // 블록 정의: 오른쪽으로 이동
-    Blockly.Blocks['move_right'] = {
-      init: function() {
-        this.appendDummyInput()
-            .appendField("X축 오른쪽으로 이동");
-        this.setPreviousStatement(true, null);
-        this.setNextStatement(true, null);
-        this.setColour(230);
-      }
-    };
-
-    // 블록 정의: 왼쪽으로 이동
-    Blockly.Blocks['move_left'] = {
-      init: function() {
-        this.appendDummyInput()
-            .appendField("X축 왼쪽으로 이동");
-        this.setPreviousStatement(true, null);
-        this.setNextStatement(true, null);
-        this.setColour(230);
-      }
-    };
-
-    // 블록 정의: 위로 이동
-    Blockly.Blocks['move_up'] = {
-      init: function() {
-        this.appendDummyInput()
-            .appendField("Y축 위로 이동");
-        this.setPreviousStatement(true, null);
-        this.setNextStatement(true, null);
-        this.setColour(180);
-      }
-    };
-
-    // 블록 정의: 아래로 이동
-    Blockly.Blocks['move_down'] = {
-      init: function() {
-        this.appendDummyInput()
-            .appendField("Y축 아래로 이동");
-        this.setPreviousStatement(true, null);
-        this.setNextStatement(true, null);
-        this.setColour(180);
-      }
-    };
-
-    // 블록 정의: 모양 변경
-    Blockly.Blocks['change_shape'] = {
-      init: function() {
-        this.appendDummyInput()
-            .appendField("모양 변경");
-        this.setPreviousStatement(true, null);
-        this.setNextStatement(true, null);
-        this.setColour(160);
-      }
-    };
-
-    // Blockly 기본 설정 (툴박스 정의)
-    var workspace = Blockly.inject('blocklyDiv', {
-      toolbox: `
-        <xml xmlns="https://developers.google.com/blockly/xml">
-          <block type="move_right"></block>
-          <block type="move_left"></block>
-          <block type="move_up"></block>
-          <block type="move_down"></block>
-          <block type="change_shape"></block>
-        </xml>
-      `
-    });
-
-    // JavaScript 코드 생성
-    Blockly.JavaScript['move_right'] = function(block) {
-      return 'moveSpriteX(10);\n';
-    };
-
-    Blockly.JavaScript['move_left'] = function(block) {
-      return 'moveSpriteX(-10);\n';
-    };
-
-    Blockly.JavaScript['move_up'] = function(block) {
-      return 'moveSpriteY(-10);\n';
-    };
-
-    Blockly.JavaScript['move_down'] = function(block) {
-      return 'moveSpriteY(10);\n';
-    };
-
-    Blockly.JavaScript['change_shape'] = function(block) {
-      return 'changeSpriteShape();\n';
-    };
-
     // 스프라이트 선택 및 제어
     const sprite = document.getElementById('sprite1');
     let isCircle = false; // 모양 상태를 저장
 
     function moveSpriteX(distance) {
-      let currentLeft = parseInt(window.getComputedStyle(sprite).left, 10) || 0;
+      let currentLeft = window.getComputedStyle(sprite).left;
+      currentLeft = parseInt(currentLeft === 'auto' ? 0 : currentLeft, 10) || 0;
       sprite.style.left = (currentLeft + distance) + 'px';
     }
 
     function moveSpriteY(distance) {
-      let currentTop = parseInt(window.getComputedStyle(sprite).top, 10) || 0;
+      let currentTop = window.getComputedStyle(sprite).top;
+      currentTop = parseInt(currentTop === 'auto' ? 0 : currentTop, 10) || 0;
       sprite.style.top = (currentTop + distance) + 'px';
     }
 
@@ -170,10 +87,51 @@
       isCircle = !isCircle; // 모양 토글
     }
 
+    // data.js에서 불러온 data 사용
+    const actions = data.actions;
+
+    // 블록 정의 및 코드 생성기 설정
+    for (let actionName in actions) {
+      const action = actions[actionName];
+
+      // 블록 정의
+      Blockly.Blocks[actionName] = {
+        init: function() {
+          this.appendDummyInput()
+              .appendField(action.block.message);
+          this.setPreviousStatement(true, null);
+          this.setNextStatement(true, null);
+          this.setColour(action.block.colour);
+        }
+      };
+
+      // 코드 생성기 정의
+      Blockly.JavaScript[actionName] = function(block) {
+        return action.code + '\n';
+      };
+    }
+
+    // 툴박스 XML 생성
+    let toolboxXml = '<xml xmlns="https://developers.google.com/blockly/xml">';
+    for (let actionName in actions) {
+      toolboxXml += `<block type="${actionName}"></block>`;
+    }
+    toolboxXml += '</xml>';
+
+    // Blockly 작업 공간 초기화
+    const workspace = Blockly.inject('blocklyDiv', {
+      toolbox: toolboxXml
+    });
+
     // Blockly로 생성된 코드를 실행하는 함수
     function runCode() {
       var code = Blockly.JavaScript.workspaceToCode(workspace);
-      eval(code); // Blockly가 생성한 코드를 실행
+      try {
+        eval(code); // Blockly가 생성한 코드를 실행
+      } catch (e) {
+        console.error(e);
+        alert('코드 실행 중 오류가 발생했습니다.');
+      }
     }
 
     // 블록 내보내기 기능 (저장)
